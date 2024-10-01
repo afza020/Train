@@ -4,69 +4,44 @@ import com.train.train.DTO.UserDTO;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class TicketService {
-    private final Map<String, UserDTO> users = new HashMap<>();
-    private final List<String> seatsA = new ArrayList<>();
-    private final List<String> seatsB = new ArrayList<>();
-    private static final double TICKET_PRICE = 20.0;
+    private final List<UserDTO> tickets = new ArrayList<>();
+    private final AtomicInteger seatCounterA = new AtomicInteger(1);
+    private final AtomicInteger seatCounterB = new AtomicInteger(1);
+    private static final String FROM = "London";
+    private static final String TO = "France";
+    private static final double PRICE = 20.0;
 
-    public TicketService() {
-        for (int i = 1; i <= 10; i++) {
-            seatsA.add("A" + i);
-            seatsB.add("B" + i);
-        }
+    public UserDTO purchaseTicket(String user, String email, String section) {
+        String seat = section.equals("A") ? "A" + seatCounterA.getAndIncrement() : "B" + seatCounterB.getAndIncrement();
+        UserDTO ticket = new UserDTO(FROM, TO, user, email, PRICE, seat, section);
+        tickets.add(ticket);
+        return ticket;
     }
 
-    public UserDTO purchaseTicket(String firstName, String lastName, String email, String section) {
-        List<String> availableSeats = section.equals("A") ? seatsA : seatsB;
-        if (availableSeats.isEmpty()) {
-            return null;
-        }
-
-        String seat = availableSeats.remove(0);
-        UserDTO user = new UserDTO(firstName, lastName, email, section, seat, TICKET_PRICE);
-        users.put(email, user);
-        return user;
-    }
-
-    public UserDTO getReceipt(String email) {
-        return users.get(email);
+    public UserDTO getTicketByEmail(String email) {
+        return tickets.stream().filter(ticket -> ticket.getEmail().equals(email)).findFirst().orElse(null);
     }
 
     public List<UserDTO> getUsersBySection(String section) {
-        List<UserDTO> sectionUsers = new ArrayList<>();
-        for (UserDTO user : users.values()) {
-            if (user.getSection().equals(section)) {
-                sectionUsers.add(user);
+        return tickets.stream().filter(ticket -> ticket.getSection().equalsIgnoreCase(section)).toList();
+    }
+
+    public boolean removeUserByEmail(String email) {
+        return tickets.removeIf(ticket -> ticket.getEmail().equals(email));
+    }
+
+    public UserDTO modifyUserSeat(String email, String newSeat) {
+        for (UserDTO ticket : tickets) {
+            if (ticket.getEmail().equals(email)) {
+                ticket.setSeat(newSeat);
+                return ticket;
             }
         }
-        return sectionUsers;
-    }
-
-    public boolean removeUser(String email) {
-        UserDTO user = users.remove(email);
-        if (user != null) {
-            List<String> availableSeats = user.getSection().equals("A") ? seatsA : seatsB;
-            availableSeats.add(user.getSeat());
-            return true;
-        }
-        return false;
-    }
-
-    public boolean modifyUserSeat(String email, String newSeat) {
-        UserDTO user = users.get(email);
-        if (user != null && (user.getSection().equals("A") ? seatsA : seatsB).contains(newSeat)) {
-            List<String> availableSeats = user.getSection().equals("A") ? seatsA : seatsB;
-            availableSeats.add(user.getSeat());
-            user.setSeat(newSeat);
-            availableSeats.remove(newSeat);
-            return true;
-        }
-        return false;
+        return null;
     }
 }
